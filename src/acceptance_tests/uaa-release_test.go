@@ -84,11 +84,11 @@ var _ = Describe("UaaRelease", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			uaaConfigMap := make(map[string]interface{})
-			err = yaml.Unmarshal(bs, nil)
+			err = yaml.Unmarshal(bs, &uaaConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 
 			// validate properties in config manifest
-			databaseBlock, ok := uaaConfigMap["database"].(map[string]interface{})
+			databaseBlock, ok := uaaConfigMap["database"].(map[interface{}]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(databaseBlock).NotTo(BeNil())
 			Expect(databaseBlock).To(HaveKeyWithValue("url", "jdbc:mysql://mysql.bosh-dns.com:3306/uaa"))
