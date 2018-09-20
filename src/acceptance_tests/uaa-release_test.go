@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode"
 	"fmt"
+	"gopkg.in/yaml.v2"
 )
 
 type row struct {
@@ -63,6 +64,36 @@ var _ = Describe("UaaRelease", func() {
 		Entry("with BPM enabled and os-conf not adding certs", 0, "./opsfiles/enable-bpm.yml", "./opsfiles/os-conf-0-certificate.yml"),
 		Entry("with BPM enabled and and with os-conf + ca_cert property adding certificates", 11, "./opsfiles/enable-bpm.yml", "./opsfiles/os-conf-1-certificate.yml", "./opsfiles/load-more-ca-certs.yml"),
 	)
+
+	Context("consuming the `database` link", func() {
+		It("should refer to the database host by a BOSH DNS URL", func() {
+			// TODO: modify deployment to add some job that produces a `database` link
+			deployUAA()
+
+			// fetch UAA config manifest from VM
+			fetchUaaConfigCmd := exec.Command(boshBinaryPath, "scp", "uaa:/var/vcap/jobs/uaa/config/uaa.yml", os.TempDir() + "/uaa.yml")
+			session, err := gexec.Start(fetchUaaConfigCmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(session, 5*time.Minute).Should(gexec.Exit(0))
+
+			// inspect contents of config file
+			uaaConfigFile, err := os.Open(os.TempDir() + "/uaa.yml")
+			Expect(err).NotTo(HaveOccurred())
+
+			bs, err := ioutil.ReadAll(uaaConfigFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			uaaConfigMap := make(map[string]interface{})
+			err = yaml.Unmarshal(bs, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			// validate properties in config manifest
+			databaseBlock, ok := uaaConfigMap["database"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(databaseBlock).NotTo(BeNil())
+			Expect(databaseBlock).To(HaveKeyWithValue("url", "jdbc:mysql://mysql.bosh-dns.com:3306/uaa"))
+		})
+	})
 })
 
 var _ = Describe("uaa-rotator-errand", func() {
